@@ -36,7 +36,7 @@ impl Command {
                     output.push("Lol, can't remember your own commands?".to_string());
                     output.push(available_commands);
                 } else {
-                    output.push(format!("{}: {}", args[1], match Command::parse(&args[1]) {
+                    output.push(format!("{}: {}", args[0], match Command::parse(&args[0]) {
                         Command::Help => "Uh... You serious?",
                         Command::List => "List stuff. Like \"virus\" for viruses.",
                         _ => "Man... I don't even know! What nonsense are you asking me?",
