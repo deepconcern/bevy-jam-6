@@ -31,16 +31,21 @@ impl Command {
         match &self {
             &Command::Help => {
                 if args.len() == 0 {
-                    let available_commands = vec![Command::Help.to_string(), Command::List.to_string()].join(" ");
+                    let available_commands =
+                        vec![Command::Help.to_string(), Command::List.to_string()].join(" ");
 
                     output.push("Lol, can't remember your own commands?".to_string());
                     output.push(available_commands);
                 } else {
-                    output.push(format!("{}: {}", args[0], match Command::parse(&args[0]) {
-                        Command::Help => "Uh... You serious?",
-                        Command::List => "List stuff. Like \"virus\" for viruses.",
-                        _ => "Man... I don't even know! What nonsense are you asking me?",
-                    }));
+                    output.push(format!(
+                        "{}: {}",
+                        args[0],
+                        match Command::parse(&args[0]) {
+                            Command::Help => "Uh... You serious?",
+                            Command::List => "List stuff. Like \"virus\" for viruses.",
+                            _ => "Man... I don't even know! What nonsense are you asking me?",
+                        }
+                    ));
                 }
             }
             &Command::Invalid => output.push(format!(
@@ -60,7 +65,10 @@ impl ToString for Command {
         match self {
             Command::Help => "?".to_string(),
             Command::List => "ls".to_string(),
-            invalid_command => panic!("Command '{:?}' is not meant to be stringified!", invalid_command),
+            invalid_command => panic!(
+                "Command '{:?}' is not meant to be stringified!",
+                invalid_command
+            ),
         }
     }
 }
@@ -133,7 +141,11 @@ fn terminal_input(
         // Execute command
         if event.key_code == KeyCode::Enter {
             let input_raw = terminal.current_input.clone();
-            let input = terminal.current_input.split_whitespace().map(|s| s.trim().to_string()).collect::<Vec<String>>();
+            let input = terminal
+                .current_input
+                .split_whitespace()
+                .map(|s| s.trim().to_string())
+                .collect::<Vec<String>>();
 
             let command = if input.len() == 0 {
                 Command::Noop
