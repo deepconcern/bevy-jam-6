@@ -5,7 +5,8 @@ use bevy::{
 
 use crate::screens::Screen;
 
-const TERMINAL_CURSOR: &'static str = "> ";
+const AVAILABLE_COMMANDS: [Command; 2] = [Command::Help, Command::List];
+const TERMINAL_CURSOR: &str = "> ";
 
 #[derive(Debug)]
 enum Command {
@@ -28,14 +29,11 @@ impl Command {
     fn run(&self, args: &[String]) -> Vec<String> {
         let mut output = Vec::new();
 
-        match &self {
-            &Command::Help => {
-                if args.len() == 0 {
-                    let available_commands =
-                        vec![Command::Help.to_string(), Command::List.to_string()].join(" ");
-
+        match self {
+            Command::Help => {
+                if args.is_empty() {
                     output.push("Lol, can't remember your own commands?".to_string());
-                    output.push(available_commands);
+                    output.push(AVAILABLE_COMMANDS.map(|c| c.to_string()).join(" "));
                 } else {
                     output.push(format!(
                         "{}: {}",
@@ -48,23 +46,23 @@ impl Command {
                     ));
                 }
             }
-            &Command::Invalid => output.push(format!(
+            Command::Invalid => output.push(format!(
                 "Invalid command, dummy (type ? if you already forgot your own scripts): {}",
                 args[0]
             )),
-            &Command::List => output.push("TODO".to_string()),
-            &Command::Noop => output.push(String::new()),
+            Command::List => output.push("TODO".to_string()),
+            Command::Noop => output.push(String::new()),
         }
 
         output
     }
 }
 
-impl ToString for Command {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for Command {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Command::Help => "?".to_string(),
-            Command::List => "ls".to_string(),
+            Command::Help => write!(f, "?"),
+            Command::List => write!(f, "ls"),
             invalid_command => panic!(
                 "Command '{:?}' is not meant to be stringified!",
                 invalid_command
@@ -87,7 +85,7 @@ struct Terminal {
 enum TerminalState {
     #[default]
     Ready,
-    Running,
+    // Running,
 }
 
 fn setup_terminal(asset_server: Res<AssetServer>, mut commands: Commands) {
@@ -147,7 +145,7 @@ fn terminal_input(
                 .map(|s| s.trim().to_string())
                 .collect::<Vec<String>>();
 
-            let command = if input.len() == 0 {
+            let command = if input.is_empty() {
                 Command::Noop
             } else {
                 Command::parse(&input[0])
