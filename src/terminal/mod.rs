@@ -135,10 +135,15 @@ fn terminal_input(
             let input_raw = terminal.current_input.clone();
             let input = terminal.current_input.split_whitespace().map(|s| s.trim().to_string()).collect::<Vec<String>>();
 
-            let command = Command::parse(&input[0]);
+            let command = if input.len() == 0 {
+                Command::Noop
+            } else {
+                Command::parse(&input[0])
+            };
 
             let output = command.run(match command {
                 Command::Invalid => &input,
+                Command::Noop => &input,
                 _ => &input[1..],
             });
 
