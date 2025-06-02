@@ -1,0 +1,29 @@
+#PCs
+type pc l01
+type pc l02
+type pc l03
+
+#Routers
+type router r01
+type router r02
+# Switches
+type switch s01
+#Servers
+type server s01
+
+#Printers
+type printer p01
+
+# Firewalls
+type firewall f01
+
+#Internet
+type internet
+
+#links
+link l01 r01
+link l02 r01
+link l03 r01
+link r01 i01
+
+

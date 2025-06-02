@@ -1,0 +1,12 @@
+#PCs
+type pc l01
+type pc l02
+type pc l03
+
+#Routers
+type router r01
+
+#links
+link l01 r01
+link l02 r01
+link l03 r01
