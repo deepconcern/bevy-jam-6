@@ -17,6 +17,7 @@ tracing = { version = "0.1", features = [
     "max_level_debug",
     "release_max_level_warn",
 ] }
+clap = { version = "4.5.39", features = ["derive"] }
 thiserror = "2.0.12"
 
 # Your web builds will start failing if you add a dependency that pulls in `getrandom` v0.3+.
