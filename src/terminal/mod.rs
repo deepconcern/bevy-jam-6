@@ -1,85 +1,39 @@
+mod command;
+mod terminal_assets;
+
 use bevy::{
-    input::{ButtonState, keyboard::KeyboardInput},
+    input::{
+        ButtonState,
+        keyboard::KeyboardInput,
+        mouse::{MouseScrollUnit, MouseWheel},
+    },
+    picking::hover::HoverMap,
     prelude::*,
+    text::LineHeight,
 };
+use command::Command;
+use rand::seq::SliceRandom;
+pub use terminal_assets::TerminalAssets;
 
-use crate::screens::Screen;
+use crate::{asset_tracking::LoadResource, audio::sound_effect, screens::Screen};
 
-const AVAILABLE_COMMANDS: [Command; 2] = [Command::Help, Command::List];
+const FONT_SIZE: f32 = 20.0;
+const LINE_HEIGHT: f32 = 21.0;
 const TERMINAL_CURSOR: &str = "> ";
 
-#[derive(Debug)]
-enum Command {
-    List,
-    Help,
-    Invalid,
-    Noop,
-}
-
-impl Command {
-    fn parse(input: &str) -> Command {
-        match input.trim() {
-            "" => Command::Noop,
-            "?" => Command::Help,
-            "ls" => Command::List,
-            _ => Command::Invalid,
-        }
-    }
-
-    fn run(&self, args: &[String]) -> Vec<String> {
-        let mut output = Vec::new();
-
-        match self {
-            Command::Help => {
-                if args.is_empty() {
-                    output.push("Lol, can't remember your own commands?".to_string());
-                    output.push(AVAILABLE_COMMANDS.map(|c| c.to_string()).join(" "));
-                } else {
-                    output.push(format!(
-                        "{}: {}",
-                        args[0],
-                        match Command::parse(&args[0]) {
-                            Command::Help => "Uh... You serious?",
-                            Command::List => "List stuff. Like \"virus\" for viruses.",
-                            _ => "Man... I don't even know! What nonsense are you asking me?",
-                        }
-                    ));
-                }
-            }
-            Command::Invalid => output.push(format!(
-                "Invalid command, dummy (type ? if you already forgot your own scripts): {}",
-                args[0]
-            )),
-            Command::List => output.push("TODO".to_string()),
-            Command::Noop => output.push(String::new()),
-        }
-
-        output
-    }
-}
-
-impl std::fmt::Display for Command {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Command::Help => write!(f, "?"),
-            Command::List => write!(f, "ls"),
-            invalid_command => panic!(
-                "Command '{:?}' is not meant to be stringified!",
-                invalid_command
-            ),
-        }
-    }
-}
+#[derive(Component)]
+struct TerminalContainer;
 
 #[derive(Component, Debug, Default)]
-struct Terminal {
+struct TerminalCursor {
     // Holds the current line to eventually be processed
     current_input: String,
     // Cursor location to figure out input/deletion
     cursor_location: usize,
-    // Tuple of historical inputs/outputs
-    history: Vec<(String, Vec<String>)>,
 }
+
+#[derive(Component)]
+struct TerminalHistory;
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, States)]
 enum TerminalState {
@@ -88,45 +42,127 @@ enum TerminalState {
     // Running,
 }
 
-fn setup_terminal(asset_server: Res<AssetServer>, mut commands: Commands) {
-    let font_handle = asset_server.load("fonts/VT323-Regular.ttf");
+fn terminal_font(terminal_assets: &TerminalAssets) -> TextFont {
+    TextFont {
+        font: terminal_assets.font.clone(),
+        font_size: FONT_SIZE,
+        line_height: LineHeight::Px(LINE_HEIGHT),
+        ..default()
+    }
+}
 
-    // Main screen
-    commands.spawn((
-        BackgroundColor(Color::BLACK),
+fn terminal_cursor(terminal_assets: &TerminalAssets) -> impl Bundle {
+    (
+        Pickable {
+            should_block_lower: false,
+            ..default()
+        },
+        TerminalCursor::default(),
+        Text::new(TERMINAL_CURSOR),
+        terminal_font(terminal_assets),
+    )
+}
+
+fn terminal_history(
+    input: &str,
+    output: &[String],
+    terminal_assets: &TerminalAssets,
+) -> impl Bundle {
+    (
         Node {
-            align_items: AlignItems::Center,
-            height: Val::Percent(100.0),
-            justify_content: JustifyContent::Center,
             width: Val::Percent(100.0),
             ..default()
         },
-        StateScoped(Screen::Gameplay),
+        Pickable {
+            should_block_lower: false,
+            ..default()
+        },
         children![(
-            // Window
-            BorderColor(Color::WHITE),
-            Node {
-                border: UiRect::all(Val::Px(5.0)),
-                height: Val::Percent(80.0),
-                padding: UiRect::all(Val::Px(5.0)),
-                width: Val::Percent(80.0),
+            Pickable {
+                should_block_lower: false,
                 ..default()
             },
-            children![(
-                // Text
-                Terminal::default(),
-                Text::new("> █"),
-                TextFont::from_font(font_handle),
-            )]
+            Text::new(format!(
+                "{}{}\n{}",
+                TERMINAL_CURSOR,
+                input,
+                output.join("\n")
+            )),
+            terminal_font(terminal_assets),
         )],
-    ));
+    )
+}
+
+pub fn terminal(terminal_assets: &TerminalAssets) -> impl Bundle {
+    (
+        // Window
+        BorderColor(Color::WHITE),
+        Node {
+            align_items: AlignItems::Center,
+            border: UiRect::all(Val::Px(5.0)),
+            box_sizing: BoxSizing::BorderBox,
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            height: Val::Percent(100.0),
+            padding: UiRect::all(Val::Px(5.0)),
+            width: Val::Percent(100.0),
+            ..default()
+        },
+        Pickable::IGNORE,
+        children![(
+            // Container
+            Node {
+                align_items: AlignItems::Stretch,
+                flex_direction: FlexDirection::Column,
+                height: Val::Percent(100.0),
+                justify_content: JustifyContent::Start,
+                overflow: Overflow::scroll_y(),
+                width: Val::Percent(100.0),
+                ..default()
+            },
+            TerminalContainer,
+            children![
+                (
+                    Node {
+                        align_items: AlignItems::Stretch,
+                        flex_direction: FlexDirection::Column,
+                        width: Val::Percent(100.0),
+                        ..default()
+                    },
+                    Pickable {
+                        should_block_lower: false,
+                        ..default()
+                    },
+                    TerminalHistory,
+                ),
+                terminal_cursor(terminal_assets)
+            ],
+        )],
+    )
 }
 
 fn terminal_input(
+    mut commands: Commands,
     mut input_event_reader: EventReader<KeyboardInput>,
-    mut terminal_query: Query<&mut Terminal>,
+    terminal_assets: Res<TerminalAssets>,
+    mut terminal_container_query: Query<
+        (&mut ComputedNode, &mut ScrollPosition),
+        With<TerminalContainer>,
+    >,
+    mut terminal_cursor_query: Query<&mut TerminalCursor>,
+    mut terminal_history_entity_query: Query<Entity, With<TerminalHistory>>,
 ) {
-    let Ok(mut terminal) = terminal_query.single_mut() else {
+    let Ok((terminal_container_node, mut terminal_container_scroll)) =
+        terminal_container_query.single_mut()
+    else {
+        return;
+    };
+
+    let Ok(mut terminal_cursor) = terminal_cursor_query.single_mut() else {
+        return;
+    };
+
+    let Ok(terminal_history_entity) = terminal_history_entity_query.single_mut() else {
         return;
     };
 
@@ -136,15 +172,22 @@ fn terminal_input(
             continue;
         }
 
+        // Play a sound
+        let rng = &mut rand::thread_rng();
+        let random_click = terminal_assets.clicks.choose(rng).unwrap().clone();
+        commands.spawn(sound_effect(random_click));
+
         // Execute command
         if event.key_code == KeyCode::Enter {
-            let input_raw = terminal.current_input.clone();
-            let input = terminal
+            // Parse input
+            let input_raw = terminal_cursor.current_input.clone();
+            let input = terminal_cursor
                 .current_input
                 .split_whitespace()
                 .map(|s| s.trim().to_string())
                 .collect::<Vec<String>>();
 
+            // Build command (or just do a noop if there is no meaningful input)
             let command = if input.is_empty() {
                 Command::Noop
             } else {
@@ -157,16 +200,30 @@ fn terminal_input(
                 _ => &input[1..],
             });
 
-            terminal.history.push((input_raw, output));
+            // Show the input and output as history
+            commands
+                .entity(terminal_history_entity)
+                .with_child(terminal_history(&input_raw, &output, &terminal_assets));
 
-            terminal.current_input = String::new();
-            terminal.cursor_location = 0;
+            // Reset cursor to except new input
+            terminal_cursor.current_input = String::new();
+            terminal_cursor.cursor_location = 0;
+
+            // Scroll to input
+            let total_history_newlines = output.len() as f32 + 2.0; // 2 is from input and the spacing between
+            let content_height = terminal_container_node.content_size().y;
+            let container_height = terminal_container_node.size().y - LINE_HEIGHT;
+
+            if container_height - LINE_HEIGHT < container_height {
+                terminal_container_scroll.offset_y =
+                    content_height + (LINE_HEIGHT * total_history_newlines)
+            }
 
             continue;
         }
 
-        let cursor_location = terminal.cursor_location;
-        let input_length = terminal.current_input.len();
+        let cursor_location = terminal_cursor.cursor_location;
+        let input_length = terminal_cursor.current_input.len();
 
         // Backspace (delete character behind)
         if event.key_code == KeyCode::Backspace {
@@ -177,14 +234,14 @@ fn terminal_input(
 
             // If at the end, truncate instead
             if cursor_location == input_length {
-                terminal.current_input.truncate(input_length - 1);
-                terminal.cursor_location -= 1;
+                terminal_cursor.current_input.truncate(input_length - 1);
+                terminal_cursor.cursor_location -= 1;
                 continue;
             }
 
             // Remove from location
-            terminal.current_input.remove(cursor_location);
-            terminal.cursor_location -= 1;
+            terminal_cursor.current_input.remove(cursor_location);
+            terminal_cursor.cursor_location -= 1;
 
             continue;
         }
@@ -208,49 +265,59 @@ fn terminal_input(
             return;
         };
 
-        terminal
+        terminal_cursor
             .current_input
             .insert_str(cursor_location, text.as_str());
-        terminal.cursor_location += 1;
+        terminal_cursor.cursor_location += 1;
     }
 }
 
-fn terminal_text(mut terminal_query: Query<(&mut Terminal, &mut Text), Changed<Terminal>>) {
+fn terminal_scrolling(
+    mut mouse_wheel_events: EventReader<MouseWheel>,
+    hover_map: Res<HoverMap>,
+    mut scrolled_node_query: Query<&mut ScrollPosition>,
+) {
+    for mouse_wheel_event in mouse_wheel_events.read() {
+        let dy = match mouse_wheel_event.unit {
+            MouseScrollUnit::Line => mouse_wheel_event.y * LINE_HEIGHT,
+            MouseScrollUnit::Pixel => mouse_wheel_event.y,
+        };
+
+        for (_pointer, pointer_map) in hover_map.iter() {
+            for (entity, _hit) in pointer_map.iter() {
+                if let Ok(mut scroll_position) = scrolled_node_query.get_mut(*entity) {
+                    scroll_position.offset_y -= dy;
+                }
+            }
+        }
+    }
+}
+
+fn terminal_text(
+    mut terminal_query: Query<(&mut TerminalCursor, &mut Text), Changed<TerminalCursor>>,
+) {
     let Ok((terminal, mut text)) = terminal_query.single_mut() else {
         return;
     };
     text.0 = String::new();
-
-    for (input, output) in &terminal.history {
-        // Push input
-        text.0.push_str(TERMINAL_CURSOR);
-        text.0.push_str(input);
-        text.0.push('\n');
-
-        // Push output
-        for entry in output {
-            text.0.push_str(entry);
-            text.0.push('\n');
-        }
-
-        // Line separating the next command
-        text.0.push('\n');
-    }
 
     text.0.push_str(TERMINAL_CURSOR);
     text.0.push_str(&terminal.current_input);
 }
 
 pub(super) fn plugin(app: &mut App) {
-    app.add_systems(OnEnter(Screen::Gameplay), setup_terminal);
     app.add_systems(
         Update,
         (
             terminal_input.run_if(in_state(TerminalState::Ready)),
+            terminal_scrolling,
             terminal_text,
         )
             .run_if(in_state(Screen::Gameplay)),
     );
 
     app.init_state::<TerminalState>();
+
+    app.register_type::<TerminalAssets>();
+    app.load_resource::<TerminalAssets>();
 }

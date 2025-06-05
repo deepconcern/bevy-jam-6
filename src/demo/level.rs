@@ -192,7 +192,6 @@ pub fn spawn_level(
 mod tests {
     use bevy::asset::LoadState;
     use super::*;
-    use bevy::prelude::*;
 
     #[test]
     fn test_network_graph_asset_type() {
