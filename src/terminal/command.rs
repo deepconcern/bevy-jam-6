@@ -1,14 +1,21 @@
 const AVAILABLE_COMMANDS: [Command; 2] = [Command::Help, Command::List];
 
+/// Commands to be interpreted by the terminal
+///
+/// When adding your own command, first add it here.
+/// Then, add the name of the command (from the terminal's point of view) to the `parse` function below.
+/// You'll also need to add your command to the `fmt::Display` implementation and the `AVAILABLE_COMMANDS` const so the "help" command can print it properly.
+/// Finally, add the logic for your command in the `run` command.
 #[derive(Debug)]
 pub enum Command {
     List,
     Help,
-    Invalid,
-    Noop,
+    Invalid, // When we can't recognize the command
+    Noop,    // For when the user presses enter without any input
 }
 
 impl Command {
+    /// Parses the command from text input
     pub fn parse(input: &str) -> Command {
         match input.trim() {
             "" => Command::Noop,
@@ -18,6 +25,7 @@ impl Command {
         }
     }
 
+    // Command logic area
     pub fn run(&self, args: &[String]) -> Vec<String> {
         let mut output = Vec::new();
 

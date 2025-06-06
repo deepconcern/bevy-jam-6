@@ -42,6 +42,7 @@ enum TerminalState {
     // Running,
 }
 
+/// Helper for creating terminal font
 fn terminal_font(terminal_assets: &TerminalAssets) -> TextFont {
     TextFont {
         font: terminal_assets.font.clone(),
@@ -51,6 +52,7 @@ fn terminal_font(terminal_assets: &TerminalAssets) -> TextFont {
     }
 }
 
+// Helper for creating terminal cursor
 fn terminal_cursor(terminal_assets: &TerminalAssets) -> impl Bundle {
     (
         Pickable {
@@ -63,6 +65,7 @@ fn terminal_cursor(terminal_assets: &TerminalAssets) -> impl Bundle {
     )
 }
 
+// Helper for creating terminal history
 fn terminal_history(
     input: &str,
     output: &[String],
@@ -93,6 +96,7 @@ fn terminal_history(
     )
 }
 
+// Builds a terminal bundle
 pub fn terminal(terminal_assets: &TerminalAssets) -> impl Bundle {
     (
         // Window
@@ -141,6 +145,8 @@ pub fn terminal(terminal_assets: &TerminalAssets) -> impl Bundle {
     )
 }
 
+/// Handles catching and handling keyboard inputs
+/// Mimicking a real terminal as best I can.
 fn terminal_input(
     mut commands: Commands,
     mut input_event_reader: EventReader<KeyboardInput>,
@@ -272,6 +278,7 @@ fn terminal_input(
     }
 }
 
+/// System for handling scrolling input on the terminal
 fn terminal_scrolling(
     mut mouse_wheel_events: EventReader<MouseWheel>,
     hover_map: Res<HoverMap>,
@@ -293,6 +300,7 @@ fn terminal_scrolling(
     }
 }
 
+// Handles displaying text input
 fn terminal_text(
     mut terminal_query: Query<(&mut TerminalCursor, &mut Text), Changed<TerminalCursor>>,
 ) {
